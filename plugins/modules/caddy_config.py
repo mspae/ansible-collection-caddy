@@ -53,8 +53,8 @@ options:
     aliases:
       - name
     description: >
-      Configuration path to which the configuration content will be pushed. Note that the path if is automatically
-      prefixed with C(config/). Example: C(apps/http/servers/myservice)
+      Configuration path to which the configuration content will be pushed. Note that the path is automatically
+      prefixed with C(config/) unless it begins with id/. Example: C(apps/http/servers/myservice)
     type: path
     required: yes
   state:

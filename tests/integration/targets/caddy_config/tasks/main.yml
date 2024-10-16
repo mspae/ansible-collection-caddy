@@ -13,9 +13,10 @@
       listen:
         - ":80"
       routes:
-        - handle:
+        - '@id': 'route_id'
+          handle:
             - handler: "static_response"
-              body: "Different Message!"
+              body: "Message!"
 
 - name: Test idempotency of update
   maxhoesel.caddy.caddy_config:
@@ -25,14 +26,25 @@
       listen:
         - ":80"
       routes:
-        - handle:
+        - '@id': 'route_id'
+          handle:
             - handler: "static_response"
-              body: "Different Message!"
+              body: "Message!"
   register: patch_change
 
 - name: Verify that PATCH update is idempotent
   assert:
     that: not patch_change.changed
+
+- name: Test writing config using @id
+  maxhoesel.caddy.caddy_config:
+    caddy_host: "{{ caddy_host }}"
+    path: id/route_id
+    content:
+      '@id': 'route_id'
+      handle:
+        - handler: "static_response"
+          body: "Different Message1!"
 
 - name: Test appending to array with POST
   maxhoesel.caddy.caddy_config:

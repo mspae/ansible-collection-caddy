@@ -20,7 +20,7 @@ options:
       - name
     description: >
       Path from which the configuration content will be read. Note that C(config/) is automatically
-      appended. Example: "apps/http/servers/myservice"
+      appended unless the path begins with id/. Example: "apps/http/servers/myservice"
     type: path
     required: yes
 

@@ -31,7 +31,8 @@ class CaddyServer(object):
         return self._make_request("load", "POST", data=config)
 
     def config_get(self, path):
-        res = self._make_request("config/{path}".format(path=path.lstrip('/')), return_error=True)
+        prefix = "" if path.lstrip('/').startswith("id/") else "config/"
+        res = self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), return_error=True)
         if res is not None and "status_code" in res:
             if "invalid traversal path at" in res.get("error", False):
                 return None
@@ -41,22 +42,29 @@ class CaddyServer(object):
         return res
 
     def config_put(self, path, config, create_path=True):
-        if create_path:
+        is_id = path.lstrip('/').startswith("id/")
+        if create_path and not is_id:
             self._create_path(path)
-        return self._make_request("config/{path}".format(path=path.lstrip('/')), "PUT", data=config)
+        prefix = "" if is_id else "config/"
+        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PUT", data=config)
 
     def config_post(self, path, config, create_path=True):
-        if create_path:
+        is_id = path.lstrip('/').startswith("id/")
+        if create_path and not is_id:
             self._create_path(path)
-        return self._make_request("config/{path}".format(path=path.lstrip('/')), "POST", data=config)
+        prefix = "" if is_id else "config/"
+        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "POST", data=config)
 
     def config_patch(self, path, config, create_path=True):
-        if create_path:
+        is_id = path.lstrip('/').startswith("id/")
+        if create_path and not is_id:
             self._create_path(path)
-        return self._make_request("config/{path}".format(path=path.lstrip('/')), "PATCH", data=config)
+        prefix = "" if is_id else "config/"
+        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PATCH", data=config)
 
     def config_delete(self, path):
-        return self._make_request("config/{path}".format(path=path.lstrip('/')), "DELETE")
+        prefix = "" if path.lstrip('/').startswith("id/") else "config/"
+        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "DELETE")
 
     # pylint: disable=inconsistent-return-statements
     def _make_request(self, path, method="GET", data=None, return_error=False):

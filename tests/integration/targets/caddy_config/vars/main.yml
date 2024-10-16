@@ -10,3 +10,7 @@ expected_config:
             - handle:
                 - handler: "static_response"
                   body: "Different Message!"
+            - handle:
+                - "@id": "aliased_route"
+                  handler: "static_response"
+                  body: "Different Message for aliased route!"
