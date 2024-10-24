@@ -33,7 +33,9 @@ class CaddyServer(object):
     def config_get(self, path):
         prefix = "" if path.lstrip('/').startswith("id/") else "config/"
         res = self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), return_error=True)
-        if res is not None and "status_code" in res:
+        if res is not None and isinstance(res, dict) and "status_code" in res:
+            if "unknown object ID" in res.get("error", False):
+                return None
             if "invalid traversal path at" in res.get("error", False):
                 return None
             else:
