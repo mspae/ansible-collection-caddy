@@ -118,8 +118,21 @@ def create_or_update_config(module, server):
     if id_:
         id_path = "/id/{id}".format(id=id_)
         current_config_via_id = server.config_get(id_path)
-        content["@id"] = id_
+        # Turn payload into an array if using append and there is no currently active config.
+        # if module.params["append"] and not current_config_via_id and not isinstance(content, list):
+        #    content = [content]
+
+        # Set the @id property on the payload:
+        if isinstance(content, list):
+            content[0]["@id"] = id_
+            if len(content) > 1:
+                module.fail_json(msg="Cannot use id property with a config array of more than one items!")
+        else:
+            content["@id"] = id_
+
         current_config = current_config_via_id
+
+        # If there already is config using the id alias, then set the path accordingly:
         if current_config_via_id:
             path = id_path
     else:

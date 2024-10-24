@@ -106,7 +106,7 @@ class CaddyServer(object):
             if not return_error:
                 self.module.fail_json(
                     msg="Error processing request ({r.reason}): {error}".format(
-                        r=r, error=error['error']), url=url, method=method)
+                        r=r, error=error['error']), url=url, method=method, data=data)
             else:
                 error["status_code"] = r.status_code
                 return error
