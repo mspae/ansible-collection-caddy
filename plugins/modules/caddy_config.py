@@ -117,7 +117,7 @@ def create_or_update_config(module, server):
     current_config_via_id = None
     if id_:
         content["@id"] = id_
-        current_config_via_id = server.config_get("/id/{id}".format(id=id))
+        current_config_via_id = server.config_get("/id/{id}".format(id=id_))
         current_config = current_config_via_id
     else:
         current_config = server.config_get(path)
