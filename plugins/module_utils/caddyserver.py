@@ -45,21 +45,21 @@ class CaddyServer(object):
 
     def config_put(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
-        if create_path and not is_id:
+        if create_path:
             self._create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PUT", data=config)
 
     def config_post(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
-        if create_path and not is_id:
+        if create_path:
             self._create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "POST", data=config)
 
     def config_patch(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
-        if create_path and not is_id:
+        if create_path:
             self._create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PATCH", data=config)
@@ -105,7 +105,7 @@ class CaddyServer(object):
             error = r.json()
             if not return_error:
                 self.module.fail_json(
-                    msg="Error durning processing of the request ({r.reason}): {error}".format(
+                    msg="Error processing request ({r.reason}): {error}".format(
                         r=r, error=error['error']), url=url, method=method)
             else:
                 error["status_code"] = r.status_code
@@ -135,6 +135,23 @@ class CaddyServer(object):
             return
 
         present = []
+
+        # Special case if the path starts with an /id/... - in this case we
+        # start the path creation from that id onwards. However, this is not
+        # possible if the ID config object doesn't exist.
+        if segments[0] == "id":
+            parent_id_exists = self.config_get("id/{id}".format(id=segments[1]))
+            if not parent_id_exists:
+                self.module.fail_json(
+                    msg="Parent ID config does not exist and cannot be automatically created: /id/{id}".format(
+                        id=segments[1]
+                    )
+                )
+            present.append(segments[0])
+            segments.pop(0)
+            present.append(segments[0])
+            segments.pop(0)
+
         while len(segments) > 1:
             current_path = "/".join(present) + "/" + segments[0]
             if not self.config_get(current_path):
