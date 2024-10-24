@@ -114,6 +114,7 @@ def create_or_update_config(module, server):
     id_ = module.params["id"]
 
     # We first test for an existing config object and create it right away if none is found
+    current_config_via_id = None
     if id_:
         content["@id"] = id_
         current_config_via_id = server.config_get("/id/{id}".format(id=id))
