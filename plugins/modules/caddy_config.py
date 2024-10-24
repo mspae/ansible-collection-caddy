@@ -116,7 +116,15 @@ def create_or_update_config(module, server):
     # We first test for an existing config object and create it right away if none is found
     current_config_via_id = None
     if id_:
-        content["@id"] = id_
+        if isinstance(content, list) and len(content) > 1:
+            # Fail when using an array with more than one items since we can only apply the id once.
+            module.fail_json(msg="Cannot use id property with a config array of more than one!",
+                             id=id_, content=content)
+        if isinstance(content, list):
+            # Apply the id to the first item in an array.
+            content[0]["@id"] = id_
+        else:
+            content["@id"] = id_
         current_config_via_id = server.config_get("/id/{id}".format(id=id_))
         current_config = current_config_via_id
     else:
