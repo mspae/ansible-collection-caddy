@@ -19,6 +19,11 @@ description: >
 notes:
   - Check mode is supported.
 options:
+  id:
+    description: >
+      If set then use this value to fill the '@id' field. Writing this enables transparent idempotency for config objects appended to an
+      array with unknown length.
+      type: string
   append:
     description: >
       If set and I(path) points to an existing array or array index, the module will tell Caddy to append/insert to the array
@@ -106,17 +111,23 @@ def create_or_update_config(module, server):
     """
     path = module.params['path']
     content = module.params["content"]
+    id_ = module.params["id"]
 
     # We first test for an existing config object and create it right away if none is found
-    current_config = server.config_get(path)
+    if id_:
+        content["@id"] = id_
+        current_config_via_id = server.config_get("/id/{id}".format(id=id))
+        current_config = current_config_via_id
+    else:
+        current_config = server.config_get(path)
 
     if current_config != content or module.params["force"]:
         if module.check_mode:
             pass
-        elif module.params["append"] and path.split("/")[-1].isdigit():
+        elif not current_config_via_id and module.params["append"] and path.split("/")[-1].isdigit():
             # Insert at array index with PUT
             server.config_put(path, content, create_path=module.params["create_path"])
-        elif module.params["append"]:
+        elif not current_config_via_id and module.params["append"]:
             # Other appends, post
             server.config_post(path, content, create_path=module.params["create_path"])
         elif current_config:
@@ -150,7 +161,8 @@ def run_module():
         create_path=dict(type="bool", default=True),
         force=dict(type="bool", default=False),
         path=dict(type="path", aliases=["name"], required=True),
-        state=dict(type="str", choices=["present", "absent"], default="present")
+        state=dict(type="str", choices=["present", "absent"], default="present"),
+        id=dict(type="string")
     )
     module_args.update(caddyhost_argspec)  # type: ignore
     module = AnsibleModule(module_args, supports_check_mode=True)
