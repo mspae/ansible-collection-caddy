@@ -163,7 +163,7 @@ def run_module():
         force=dict(type="bool", default=False),
         path=dict(type="path", aliases=["name"], required=True),
         state=dict(type="str", choices=["present", "absent"], default="present"),
-        id=dict(type="string")
+        id=dict(type="str")
     )
     module_args.update(caddyhost_argspec)  # type: ignore
     module = AnsibleModule(module_args, supports_check_mode=True)
