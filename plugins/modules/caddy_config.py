@@ -132,9 +132,13 @@ def create_or_update_config(module, server):
 
         current_config = current_config_via_id
 
-        # If there already is config using the id alias, then set the path accordingly:
+        # If there already is config using the id alias, then set the path
+        # accordingly and if the payload is an array, then use the first array
+        # item.
         if current_config_via_id:
             path = id_path
+            if isinstance(content, list):
+                content = content[0]
     else:
         current_config = server.config_get(path)
 
@@ -162,6 +166,18 @@ def delete_config(module, server):
     If force is set, will always push the configuration, even if no change would be made.
     """
     path = module.params["path"]
+
+    # If using id and append together, then don't dete the parent path,
+    # instead delete the config with the id, if it exists.
+    if module.params["id"] and module.params["append"]:
+        id_ = module.params["id"]
+        id_path = "/id/{id}".format(id=id_)
+        current_config_via_id = server.config_get(id_path)
+        if current_config_via_id is None:
+            return {"changed": False}
+        else:
+            server.config_delete(id_path)
+            return {"changed": True}
 
     current_config = server.config_get(path)
     if current_config is None:
