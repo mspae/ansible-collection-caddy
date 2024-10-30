@@ -38,6 +38,8 @@ class CaddyServer(object):
                 return None
             if "invalid traversal path at" in res.get("error", False):
                 return None
+            if "array index out of bounds" in res.get("error", False):
+                return None
             else:
                 self.module.exit_json(msg="Error while getting configuration at {path}: {err}".format(
                     path=path, err=res.get('error', '')))
@@ -46,21 +48,21 @@ class CaddyServer(object):
     def config_put(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
         if create_path:
-            self._create_path(path)
+            self.create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PUT", data=config)
 
     def config_post(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
         if create_path:
-            self._create_path(path)
+            self.create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "POST", data=config)
 
     def config_patch(self, path, config, create_path=True):
         is_id = path.lstrip('/').startswith("id/")
         if create_path:
-            self._create_path(path)
+            self.create_path(path)
         prefix = "" if is_id else "config/"
         return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PATCH", data=config)
 
@@ -117,7 +119,7 @@ class CaddyServer(object):
             return
         return json
 
-    def _create_path(self, path):
+    def create_path(self, path):
         """
         Recursively walks through a caddy config path and creates objects until the final path object can be created.
         Does nothing if the first object in the path already exists.

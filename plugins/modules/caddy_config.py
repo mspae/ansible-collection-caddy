@@ -4,6 +4,7 @@
 # Copyright: (c) 2021, Max Hösel <ansible@maxhoesel.de>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
 DOCUMENTATION = r"""
@@ -27,8 +28,8 @@ options:
   append:
     description: >
       If set and I(path) points to an existing array or array index, the module will tell Caddy to append/insert to the array
-      (using the APIs C(POST/PUT) method), instead of replacing the array/array index (API C(PATCH) method).
-      See the L(Caddy API Documentation, https://caddyserver.com/docs/api\#patch-configpath) for details.
+      (using the APIs C(POST) method), instead of replacing the config at I(path). If there is no existing array, then it will
+      be created prior to appending the config.
     type: bool
     default: no
   create_path:
@@ -109,46 +110,41 @@ def create_or_update_config(module, server):
     POST will append to an array at path, while PATCH wil overwrite it.
     If force is set, will always push the configuration, even if no change would be made.
     """
-    path = module.params['path']
+    path = module.params["path"]
     content = module.params["content"]
     id_ = module.params["id"]
+    append = module.params["append"]
 
-    # We first test for an existing config object and create it right away if none is found
     current_config_via_id = None
+    current_config_via_path = server.config_get(path)
     if id_:
         id_path = "/id/{id}".format(id=id_)
         current_config_via_id = server.config_get(id_path)
-        # Turn payload into an array if using append and there is no currently active config.
-        # if module.params["append"] and not current_config_via_id and not isinstance(content, list):
-        #    content = [content]
-
-        # Set the @id property on the payload:
-        if isinstance(content, list):
-            content[0]["@id"] = id_
-            if len(content) > 1:
-                module.fail_json(msg="Cannot use id property with a config array of more than one items!")
-        else:
-            content["@id"] = id_
-
+        content["@id"] = id_
         current_config = current_config_via_id
-
-        # If there already is config using the id alias, then set the path
-        # accordingly and if the payload is an array, then use the first array
-        # item.
-        if current_config_via_id:
-            path = id_path
-            if isinstance(content, list):
-                content = content[0]
     else:
-        current_config = server.config_get(path)
+        current_config = current_config_via_path
+
+    # Turn payload into an array if using append and there is no currently
+    # active config. Ensure the parent array exists
+    if append and (not id_ or (id_ and not current_config_via_id)):
+        #content = [content]
+        if not module.check_mode:
+            server.create_path("{path}/0".format(path=path))
+
+    # If there already is config using the id alias, then set the path
+    # accordingly and if the payload is an array, then use the first array
+    # item.
+    if current_config_via_id:
+        path = id_path
 
     if current_config != content or module.params["force"]:
         if module.check_mode:
             pass
-        elif not current_config_via_id and module.params["append"] and path.split("/")[-1].isdigit():
+        elif not current_config_via_id and append and path.split("/")[-1].isdigit():
             # Insert at array index with PUT
             server.config_put(path, content, create_path=module.params["create_path"])
-        elif not current_config_via_id and module.params["append"]:
+        elif not current_config_via_id and append:
             # Other appends, post
             server.config_post(path, content, create_path=module.params["create_path"])
         elif current_config:
@@ -195,13 +191,15 @@ def run_module():
         force=dict(type="bool", default=False),
         path=dict(type="path", aliases=["name"], required=True),
         state=dict(type="str", choices=["present", "absent"], default="present"),
-        id=dict(type="str")
+        id=dict(type="str"),
     )
     module_args.update(caddyhost_argspec)  # type: ignore
     module = AnsibleModule(module_args, supports_check_mode=True)
     module.params = cast(Dict, module.params)
 
-    server = CaddyServer(module, module.params["caddy_host"], timeout=module.params["timeout"])
+    server = CaddyServer(
+        module, module.params["caddy_host"], timeout=module.params["timeout"]
+    )
 
     result = {}
     if module.params["state"] == "present":
