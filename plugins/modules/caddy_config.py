@@ -127,10 +127,10 @@ def create_or_update_config(module, server):
 
     # Turn payload into an array if using append and there is no currently
     # active config. Ensure the parent array exists
-    if append and (not id_ or (id_ and not current_config_via_id)):
-        #content = [content]
-        if not module.check_mode:
-            server.create_path("{path}/0".format(path=path))
+    # if append and (not id_ or (id_ and not current_config_via_path)):
+    #    content = [content]
+        # if not module.check_mode:
+        #    server.create_path("{path}/0".format(path=path))
 
     # If there already is config using the id alias, then set the path
     # accordingly and if the payload is an array, then use the first array
@@ -163,7 +163,7 @@ def delete_config(module, server):
     """
     path = module.params["path"]
 
-    # If using id and append together, then don't dete the parent path,
+    # If using id and append together, then don't delete the parent path,
     # instead delete the config with the id, if it exists.
     if module.params["id"] and module.params["append"]:
         id_ = module.params["id"]
