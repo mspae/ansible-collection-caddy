@@ -94,6 +94,7 @@ EXAMPLES = r"""
     state: absent
 """
 
+import yaml
 from typing import Dict, cast
 
 from ansible.module_utils.basic import AnsibleModule
@@ -114,6 +115,9 @@ def create_or_update_config(module, server):
     content = module.params["content"]
     id_ = module.params["id"]
     append = module.params["append"]
+    
+    # Used for the diff
+    content_ = content
 
     current_config_via_id = None
     current_config_via_path = server.config_get(path)
@@ -127,10 +131,8 @@ def create_or_update_config(module, server):
 
     # Turn payload into an array if using append and there is no currently
     # active config. Ensure the parent array exists
-    # if append and (not id_ or (id_ and not current_config_via_path)):
-    #    content = [content]
-        # if not module.check_mode:
-        #    server.create_path("{path}/0".format(path=path))
+    if append and not current_config_via_path:
+        content = [content]
 
     # If there already is config using the id alias, then set the path
     # accordingly and if the payload is an array, then use the first array
@@ -138,22 +140,33 @@ def create_or_update_config(module, server):
     if current_config_via_id:
         path = id_path
 
+    result = dict(
+        changed=False
+    )
+
     if current_config != content or module.params["force"]:
-        if module.check_mode:
-            pass
-        elif not current_config_via_id and append and path.split("/")[-1].isdigit():
-            # Insert at array index with PUT
-            server.config_put(path, content, create_path=module.params["create_path"])
-        elif not current_config_via_id and append:
-            # Other appends, post
-            server.config_post(path, content, create_path=module.params["create_path"])
-        elif current_config:
-            server.config_patch(path, content, create_path=module.params["create_path"])
-        else:
-            # current config doesn't exist, create
-            server.config_put(path, content, create_path=module.params["create_path"])
-        return {"changed": True}
-    return {"changed": False}
+        if not module.check_mode:
+            if not current_config_via_id and append and path.split("/")[-1].isdigit():
+                # Insert at array index with PUT
+                server.config_put(path, content, create_path=module.params["create_path"])
+            elif not current_config_via_id and append:
+                # Other appends, post
+                server.config_post(path, content, create_path=module.params["create_path"])
+            elif current_config:
+                server.config_patch(path, content, create_path=module.params["create_path"])
+            else:
+                # current config doesn't exist, create
+                server.config_put(path, content, create_path=module.params["create_path"])
+            
+        if module._diff:
+            result["diff"] = dict(
+                before=yaml.safe_dump(current_config),
+                after=yaml.safe_dump(content_)
+            )
+        
+        result["changed"] = True
+  
+    return result
 
 
 def delete_config(module, server):
@@ -162,6 +175,9 @@ def delete_config(module, server):
     If force is set, will always push the configuration, even if no change would be made.
     """
     path = module.params["path"]
+    result = dict(
+        changed=False
+    )
 
     # If using id and append together, then don't delete the parent path,
     # instead delete the config with the id, if it exists.
@@ -170,17 +186,29 @@ def delete_config(module, server):
         id_path = "/id/{id}".format(id=id_)
         current_config_via_id = server.config_get(id_path)
         if current_config_via_id is None:
-            return {"changed": False}
+            result["changed"] = False
         else:
-            server.config_delete(id_path)
-            return {"changed": True}
+            if not module.check_mode:
+                server.config_delete(id_path)
+            result["changed"] = True
+            result["diff"] = dict(
+                before=yaml.safe_dump(current_config_via_id),
+                after=yaml.safe_dump(None)
+            )
 
     current_config = server.config_get(path)
     if current_config is None:
-        return {"changed": False}
-    elif not module.check_mode:
-        server.config_delete(path)
-    return {"changed": True}
+        result["changed"] = False
+    else:
+        if not module.check_mode:
+            server.config_delete(path)
+        result["changed"] = True
+        result["diff"] = dict(
+            before=yaml.safe_dump(current_config_via_id),
+            after=yaml.safe_dump(None)
+        )
+
+    return result
 
 
 def run_module():
