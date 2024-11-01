@@ -204,7 +204,7 @@ def delete_config(module, server):
             server.config_delete(path)
         result["changed"] = True
         result["diff"] = dict(
-            before=yaml.safe_dump(current_config_via_id),
+            before=yaml.safe_dump(current_config),
             after=yaml.safe_dump(None)
         )
 
