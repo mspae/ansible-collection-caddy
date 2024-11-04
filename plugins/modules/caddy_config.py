@@ -152,7 +152,7 @@ def create_or_update_config(module, server):
             elif not current_config_via_id and append:
                 # Other appends, post
                 server.config_post(path, content, create_path=module.params["create_path"])
-            elif current_config:
+            elif current_config != None:
                 server.config_patch(path, content, create_path=module.params["create_path"])
             else:
                 # current config doesn't exist, create
