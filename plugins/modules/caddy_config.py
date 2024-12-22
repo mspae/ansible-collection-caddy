@@ -94,8 +94,8 @@ EXAMPLES = r"""
     state: absent
 """
 
-import yaml
 from typing import Dict, cast
+import yaml
 
 from ansible.module_utils.basic import AnsibleModule
 from ..module_utils.caddyserver import CaddyServer
@@ -115,7 +115,7 @@ def create_or_update_config(module, server):
     content = module.params["content"]
     id_ = module.params["id"]
     append = module.params["append"]
-    
+
     # Used for the diff
     content_ = content
 
@@ -140,32 +140,38 @@ def create_or_update_config(module, server):
     if current_config_via_id:
         path = id_path
 
-    result = dict(
-        changed=False
-    )
+    result = dict(changed=False)
 
     if current_config != content or module.params["force"]:
         if not module.check_mode:
             if not current_config_via_id and append and path.split("/")[-1].isdigit():
                 # Insert at array index with PUT
-                server.config_put(path, content, create_path=module.params["create_path"])
+                server.config_put(
+                    path, content, create_path=module.params["create_path"]
+                )
             elif not current_config_via_id and append:
                 # Other appends, post
-                server.config_post(path, content, create_path=module.params["create_path"])
-            elif current_config != None:
-                server.config_patch(path, content, create_path=module.params["create_path"])
+                server.config_post(
+                    path, content, create_path=module.params["create_path"]
+                )
+            elif current_config is not None:
+                server.config_patch(
+                    path, content, create_path=module.params["create_path"]
+                )
             else:
                 # current config doesn't exist, create
-                server.config_put(path, content, create_path=module.params["create_path"])
-            
+                server.config_put(
+                    path, content, create_path=module.params["create_path"]
+                )
+
+        # pylint: disable=protected-access
         if module._diff:
             result["diff"] = dict(
-                before=yaml.safe_dump(current_config),
-                after=yaml.safe_dump(content_)
+                before=yaml.safe_dump(current_config), after=yaml.safe_dump(content_)
             )
-        
+
         result["changed"] = True
-  
+
     return result
 
 
@@ -175,9 +181,7 @@ def delete_config(module, server):
     If force is set, will always push the configuration, even if no change would be made.
     """
     path = module.params["path"]
-    result = dict(
-        changed=False
-    )
+    result = dict(changed=False)
 
     # If using id and append together, then don't delete the parent path,
     # instead delete the config with the id, if it exists.
@@ -192,21 +196,19 @@ def delete_config(module, server):
                 server.config_delete(id_path)
             result["changed"] = True
             result["diff"] = dict(
-                before=yaml.safe_dump(current_config_via_id),
-                after=yaml.safe_dump(None)
+                before=yaml.safe_dump(current_config_via_id), after=yaml.safe_dump(None)
             )
-
-    current_config = server.config_get(path)
-    if current_config is None:
-        result["changed"] = False
     else:
-        if not module.check_mode:
-            server.config_delete(path)
-        result["changed"] = True
-        result["diff"] = dict(
-            before=yaml.safe_dump(current_config),
-            after=yaml.safe_dump(None)
-        )
+        current_config = server.config_get(path)
+        if current_config is None:
+            result["changed"] = False
+        else:
+            if not module.check_mode:
+                server.config_delete(path)
+            result["changed"] = True
+            result["diff"] = dict(
+                before=yaml.safe_dump(current_config), after=yaml.safe_dump(None)
+            )
 
     return result
 
@@ -226,7 +228,7 @@ def run_module():
     module.params = cast(Dict, module.params)
 
     server = CaddyServer(
-        module, module.params["caddy_host"], timeout=module.params["timeout"]
+        module, module.params["caddy_api"], timeout=module.params["timeout"]
     )
 
     result = {}

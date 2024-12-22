@@ -12,8 +12,10 @@ class ModuleDocFragment(object):
     requirements:
       - C(requests) must be installed on the host executing the query
     options:
-      caddy_host:
-        description: Address of the caddy API endpoint
+      caddy_api:
+        description: Address of the caddy API endpoint, this can also
+        consistent of a unix socket via https://gitlab.com/thelabnyc/requests-unixsocket2
+        In this case the adress to the socket must look like this: http\+unix://%2Fvar%2Frun%2Fcaddy.sock
         default: "http://localhost:2019"
         type: str
       timeout:

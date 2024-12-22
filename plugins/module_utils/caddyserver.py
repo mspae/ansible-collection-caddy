@@ -3,22 +3,17 @@
 # Copyright: (c) 2021, Max Hösel <ansible@maxhoesel.de>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
+from .socket_requests import monkeypatch
 
 __metaclass__ = type
 
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
+monkeypatch()
 
 
 class CaddyServer(object):
 
     def __init__(self, module, addr, timeout):
-        if not HAS_REQUESTS:
-            module.fail_json(msg="The 'requests' python package is required to run this module")
         self.module = module
         self.timeout = timeout
         # If the user does not specify a protocol we assume Caddys default: HTTP
@@ -31,8 +26,11 @@ class CaddyServer(object):
         return self._make_request("load", "POST", data=config)
 
     def config_get(self, path):
-        prefix = "" if path.lstrip('/').startswith("id/") else "config/"
-        res = self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), return_error=True)
+        prefix = "" if path.lstrip("/").startswith("id/") else "config/"
+        res = self._make_request(
+            "{prefix}{path}".format(path=path.lstrip("/"), prefix=prefix),
+            return_error=True,
+        )
         if res is not None and isinstance(res, dict) and "status_code" in res:
             if "unknown object ID" in res.get("error", False):
                 return None
@@ -41,34 +39,51 @@ class CaddyServer(object):
             if "array index out of bounds" in res.get("error", False):
                 return None
             else:
-                self.module.exit_json(msg="Error while getting configuration at {path}: {err}".format(
-                    path=path, err=res.get('error', '')))
+                self.module.exit_json(
+                    msg="Error while getting configuration at {path}: {err}".format(
+                        path=path, err=res.get("error", "")
+                    )
+                )
         return res
 
     def config_put(self, path, config, create_path=True):
-        is_id = path.lstrip('/').startswith("id/")
+        is_id = path.lstrip("/").startswith("id/")
         if create_path:
             self.create_path(path)
         prefix = "" if is_id else "config/"
-        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PUT", data=config)
+        return self._make_request(
+            "{prefix}{path}".format(path=path.lstrip("/"), prefix=prefix),
+            "PUT",
+            data=config,
+        )
 
     def config_post(self, path, config, create_path=True):
-        is_id = path.lstrip('/').startswith("id/")
+        is_id = path.lstrip("/").startswith("id/")
         if create_path:
             self.create_path(path)
         prefix = "" if is_id else "config/"
-        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "POST", data=config)
+        return self._make_request(
+            "{prefix}{path}".format(path=path.lstrip("/"), prefix=prefix),
+            "POST",
+            data=config,
+        )
 
     def config_patch(self, path, config, create_path=True):
-        is_id = path.lstrip('/').startswith("id/")
+        is_id = path.lstrip("/").startswith("id/")
         if create_path:
             self.create_path(path)
         prefix = "" if is_id else "config/"
-        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "PATCH", data=config)
+        return self._make_request(
+            "{prefix}{path}".format(path=path.lstrip("/"), prefix=prefix),
+            "PATCH",
+            data=config,
+        )
 
     def config_delete(self, path):
-        prefix = "" if path.lstrip('/').startswith("id/") else "config/"
-        return self._make_request("{prefix}{path}".format(path=path.lstrip('/'), prefix=prefix), "DELETE")
+        prefix = "" if path.lstrip("/").startswith("id/") else "config/"
+        return self._make_request(
+            "{prefix}{path}".format(path=path.lstrip("/"), prefix=prefix), "DELETE"
+        )
 
     # pylint: disable=inconsistent-return-statements
     def _make_request(self, path, method="GET", data=None, return_error=False):
@@ -85,7 +100,7 @@ class CaddyServer(object):
 
         try:
             if method == "GET":
-                r = requests.get(url, timeout=self.timeout)
+                r = self.session.get(url, timeout=self.timeout)
             elif method == "POST":
                 r = requests.post(url, json=data, timeout=self.timeout)
             elif method == "PUT":
@@ -96,11 +111,17 @@ class CaddyServer(object):
                 r = requests.delete(url, json=data, timeout=self.timeout)
             else:
                 self.module.fail_json(
-                    msg="Invalid HTTP method for accessing the Caddy API: {method}".format(method=method))
+                    msg="Invalid HTTP method for accessing the Caddy API: {method}".format(
+                        method=method
+                    )
+                )
                 return
         except (requests.exceptions.RequestException, requests.ConnectionError) as e:
-            self.module.fail_json(msg="Error accessing the Caddy API: {error}".format(
-                error=repr(e)), url=url, method=method)
+            self.module.fail_json(
+                msg="Error accessing the Caddy API: {error}".format(error=repr(e)),
+                url=url,
+                method=method,
+            )
             return
 
         if not r.ok:
@@ -108,7 +129,12 @@ class CaddyServer(object):
             if not return_error:
                 self.module.fail_json(
                     msg="Error processing request ({r.reason}): {error}".format(
-                        r=r, error=error['error']), url=url, method=method, data=data)
+                        r=r, error=error["error"]
+                    ),
+                    url=url,
+                    method=method,
+                    data=data,
+                )
             else:
                 error["status_code"] = r.status_code
                 return error
@@ -157,7 +183,10 @@ class CaddyServer(object):
         while len(segments) > 1:
             current_path = "/".join(present) + "/" + segments[0]
             if not self.config_get(current_path):
-                self.config_put("/".join(present) + "/" + segments[0],
-                                [] if segments[1].isdigit() else {}, create_path=False)
+                self.config_put(
+                    "/".join(present) + "/" + segments[0],
+                    [] if segments[1].isdigit() else {},
+                    create_path=False,
+                )
             present.append(segments[0])
             segments.pop(0)
